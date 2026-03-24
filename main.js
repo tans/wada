@@ -2,7 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 
 const CONFIG_PATH = path.join(process.cwd(), 'config.json');
 const LOG_PATH = path.join(process.cwd(), 'log.txt');
@@ -14,7 +14,7 @@ const DEFAULT_ROLES = [
     name: 'Ada',
     title: '创业孵化顾问',
     description: '关注商业路径、执行节奏和冷启动推进，适合创业咨询与项目推进场景。',
-    avatar: 'https://randomuser.me/api/portraits/women/68.jpg',
+    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Ada&backgroundColor=f4efe6,dfe8d8,f8d7c4',
     prompt: '你是 Ada，一位创业孵化顾问。回答务实、直接、可执行，像经验丰富的创业陪跑顾问。'
   },
   {
@@ -22,7 +22,7 @@ const DEFAULT_ROLES = [
     name: 'Mia',
     title: '医疗顾问',
     description: '先澄清症状与背景，再给出风险提示和就医建议，不做正式诊断。',
-    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Mia&backgroundColor=f4efe6,dfe8d8,f8d7c4',
     prompt: '你是一名医疗顾问助理。先澄清症状与背景，不做确诊，给出风险提醒和就医建议。'
   },
   {
@@ -30,7 +30,7 @@ const DEFAULT_ROLES = [
     name: 'Ethan',
     title: '法律顾问',
     description: '回答强调边界、合规和风险，适合合同、沟通留痕与基础法律咨询。',
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
+    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Ethan&backgroundColor=f4efe6,dfe8d8,f8d7c4',
     prompt: '你是一名法律顾问助理。回答要有结构，说明合规边界与风险，并提醒咨询当地执业律师。'
   },
   {
@@ -38,7 +38,7 @@ const DEFAULT_ROLES = [
     name: 'Sophie',
     title: '人力资源顾问',
     description: '适合招聘、绩效、组织协同与团队沟通类问题，强调可落地动作。',
-    avatar: 'https://randomuser.me/api/portraits/women/22.jpg',
+    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Sophie&backgroundColor=f4efe6,dfe8d8,f8d7c4',
     prompt: '你是一名人力资源顾问，给出招聘、绩效和团队沟通的可执行建议。'
   },
   {
@@ -46,7 +46,7 @@ const DEFAULT_ROLES = [
     name: 'Noah',
     title: '投资顾问',
     description: '偏理性分析和风险控制，适合资产配置、投研思路与方案比较。',
-    avatar: 'https://randomuser.me/api/portraits/men/75.jpg',
+    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Noah&backgroundColor=f4efe6,dfe8d8,f8d7c4',
     prompt: '你是一名投资顾问，侧重风险管理、资产配置与多方案比较，不承诺收益。'
   },
   {
@@ -54,7 +54,7 @@ const DEFAULT_ROLES = [
     name: 'Olivia',
     title: '保险理财顾问',
     description: '擅长梳理保障缺口、家庭现金流和保单配置，优先考虑风险覆盖与长期规划。',
-    avatar: 'https://randomuser.me/api/portraits/women/63.jpg',
+    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Olivia&backgroundColor=f4efe6,dfe8d8,f8d7c4',
     prompt: '你是一名保险理财顾问。回答聚焦保障缺口、保费压力、现金流匹配和长期规划，不夸大收益。'
   },
   {
@@ -62,7 +62,7 @@ const DEFAULT_ROLES = [
     name: 'Daniel',
     title: '房地产销售',
     description: '适合介绍房源价值、区域配套、交易流程与客户异议处理，表达专业但不过度施压。',
-    avatar: 'https://randomuser.me/api/portraits/men/54.jpg',
+    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Daniel&backgroundColor=f4efe6,dfe8d8,f8d7c4',
     prompt: '你是一名房地产销售顾问。回答要专业、清晰，突出房源价值、区域配套、交易流程与客户顾虑化解。'
   }
 ];
@@ -89,6 +89,58 @@ function getDefaultDllPath() {
   return path.join(getProgramDirectory(), 'libGLESv1.dll');
 }
 
+function normalizeDirectoryForCompare(dirPath) {
+  return path.resolve(dirPath).replace(/[\\/]+$/, '').toLowerCase();
+}
+
+function escapePowerShellSingleQuoted(value) {
+  return String(value).replace(/'/g, "''");
+}
+
+function killResidualInjectProcesses(executable) {
+  if (process.platform !== 'win32') {
+    return [];
+  }
+
+  const targetDir = normalizeDirectoryForCompare(path.dirname(executable));
+  const psScript = [
+    `$targetDir = '${escapePowerShellSingleQuoted(targetDir)}'`,
+    "$killed = @()",
+    "Get-CimInstance Win32_Process -Filter \"Name = 'inject.exe'\" | ForEach-Object {",
+    "  $exePath = $_.ExecutablePath",
+    "  if (-not $exePath) { return }",
+    "  $procDir = [System.IO.Path]::GetDirectoryName($exePath)",
+    "  if (-not $procDir) { return }",
+    "  if ($procDir.TrimEnd('\\\\','/').ToLowerInvariant() -ne $targetDir) { return }",
+    "  Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop",
+    "  $killed += [PSCustomObject]@{ pid = $_.ProcessId; path = $exePath }",
+    "}",
+    "if ($killed.Count -gt 0) { $killed | ConvertTo-Json -Compress }"
+  ].join('\n');
+
+  const result = spawnSync('powershell.exe', ['-NoProfile', '-Command', psScript], {
+    encoding: 'utf8',
+    windowsHide: true
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    const stderr = (result.stderr || '').trim();
+    throw new Error(stderr || `powershell exited with code ${String(result.status)}`);
+  }
+
+  const stdout = (result.stdout || '').trim();
+  if (!stdout) {
+    return [];
+  }
+
+  const parsed = JSON.parse(stdout);
+  return Array.isArray(parsed) ? parsed : [parsed];
+}
+
 const DEFAULT_CONFIG = {
   selectedRoleId: 'ada-incubator',
   groupReplyEnabled: false,
@@ -109,6 +161,7 @@ let logs = [];
 let taskStatus = { roleId: '', status: 'idle', fromUserName: '', updatedAt: 0 };
 let taskStatusResetTimer;
 let conversations = [];
+let runtimeUpstreamBase = '';
 
 function ensureRuntimeFiles() {
   if (!fs.existsSync(CONFIG_PATH)) {
@@ -152,6 +205,45 @@ function safeJsonStringify(value) {
   } catch (error) {
     return JSON.stringify({ error: `stringify_failed: ${error.message}` });
   }
+}
+
+function safeErrorMessage(error) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
+
+function normalizeBaseUrl(value) {
+  return String(value || '').replace(/\/+$/, '');
+}
+
+function getActiveUpstreamBase() {
+  return normalizeBaseUrl(runtimeUpstreamBase || config?.upstreamBase || DEFAULT_CONFIG.upstreamBase);
+}
+
+function maybeUpdateRuntimeUpstreamBase(httpPort) {
+  const port = Number(httpPort);
+  if (!Number.isFinite(port) || port <= 0) {
+    return;
+  }
+
+  const next = `http://127.0.0.1:${port}`;
+  const normalizedNext = normalizeBaseUrl(next);
+  const normalizedCurrent = normalizeBaseUrl(runtimeUpstreamBase);
+  const normalizedConfig = normalizeBaseUrl(config?.upstreamBase || '');
+
+  if (normalizedCurrent === normalizedNext) {
+    return;
+  }
+
+  runtimeUpstreamBase = normalizedNext;
+  if (normalizedConfig === normalizedNext) {
+    pushLog(`运行时上游端口确认: ${runtimeUpstreamBase}`);
+    return;
+  }
+
+  pushLog(`运行时上游端口已切换: ${normalizedConfig || '(empty)'} -> ${runtimeUpstreamBase}`);
 }
 
 function emitTaskStatus(nextTaskStatus) {
@@ -266,6 +358,83 @@ function getDefaultWeixinPath() {
   ]);
 }
 
+function getStartDiagnostics(executable, injectArgs) {
+  const expectedCallbackUrl = `http://127.0.0.1:${config.callbackPort}/api/recvMsg`;
+  const parsedConfig = (() => {
+    if (!Array.isArray(injectArgs) || injectArgs.length < 3) {
+      return null;
+    }
+    try {
+      return JSON.parse(injectArgs[2]);
+    } catch {
+      return null;
+    }
+  })();
+
+  return {
+    cwd: process.cwd(),
+    programDirectory: getProgramDirectory(),
+    configPath: CONFIG_PATH,
+    executable,
+    executableExists: fs.existsSync(executable),
+    injectExecutableConfig: config.injectExecutable || '',
+    injectArgsSource: Array.isArray(config.injectArgs) && config.injectArgs.length > 0 ? 'config.injectArgs' : 'buildInjectArgs',
+    injectArgsCount: Array.isArray(injectArgs) ? injectArgs.length : 0,
+    weixinPath: Array.isArray(injectArgs) ? (injectArgs[0] || '') : '',
+    weixinExists: Array.isArray(injectArgs) && injectArgs[0] ? fs.existsSync(injectArgs[0]) : false,
+    dllPath: Array.isArray(injectArgs) ? (injectArgs[1] || '') : '',
+    dllExists: Array.isArray(injectArgs) && injectArgs[1] ? fs.existsSync(injectArgs[1]) : false,
+    callbackPort: config.callbackPort,
+    upstreamBase: config.upstreamBase,
+    activeUpstreamBase: getActiveUpstreamBase(),
+    expectedCallbackUrl,
+    parsedInjectConfig: parsedConfig,
+    rawInjectArgsPreview: Array.isArray(injectArgs)
+      ? injectArgs.map((item, index) => (index === 2 ? `[json] ${item}` : item))
+      : []
+  };
+}
+
+function listMatchingProcessesByPath(processName, expectedPath) {
+  if (process.platform !== 'win32' || !expectedPath) {
+    return [];
+  }
+
+  const normalizedPath = path.resolve(expectedPath).toLowerCase();
+  const psScript = [
+    `$targetPath = '${escapePowerShellSingleQuoted(normalizedPath)}'`,
+    "$items = @()",
+    `Get-CimInstance Win32_Process -Filter "Name = '${processName}'" | ForEach-Object {`,
+    "  $exePath = $_.ExecutablePath",
+    "  if (-not $exePath) { return }",
+    "  if ($exePath.ToLowerInvariant() -ne $targetPath) { return }",
+    "  $items += [PSCustomObject]@{ pid = $_.ProcessId; path = $exePath; commandLine = $_.CommandLine }",
+    "}",
+    "if ($items.Count -gt 0) { $items | ConvertTo-Json -Compress }"
+  ].join('\n');
+
+  const result = spawnSync('powershell.exe', ['-NoProfile', '-Command', psScript], {
+    encoding: 'utf8',
+    windowsHide: true
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    const stderr = (result.stderr || '').trim();
+    throw new Error(stderr || `powershell exited with code ${String(result.status)}`);
+  }
+
+  const stdout = (result.stdout || '').trim();
+  if (!stdout) {
+    return [];
+  }
+
+  const parsed = JSON.parse(stdout);
+  return Array.isArray(parsed) ? parsed : [parsed];
+}
+
 function buildInjectArgs() {
   if (Array.isArray(config.injectArgs) && config.injectArgs.length > 0) {
     return config.injectArgs;
@@ -336,16 +505,25 @@ async function requestDeepSeekReply(inputText) {
 }
 
 async function sendTextMessage(wxid, msg) {
-  const res = await fetch(`${config.upstreamBase}/api/send_text_msg`, {
+  const activeUpstreamBase = getActiveUpstreamBase();
+  const url = `${activeUpstreamBase}/api/send_text_msg`;
+  pushLog(`发送消息请求: url=${url}, wxid=${wxid}, length=${String(msg ? String(msg).length : 0)}`);
+
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ wxid, msg })
   });
 
+  pushLog(`发送消息响应: status=${res.status}, ok=${String(res.ok)}, url=${url}`);
+
   if (!res.ok) {
     const detail = await res.text();
     throw new Error(`鍙戦€佹秷鎭け璐? HTTP ${res.status} ${detail}`);
   }
+
+  const text = await res.text();
+  pushLog(`发送消息响应体: ${text || '(empty)'}`);
 }
 
 function readStringField(value) {
@@ -469,7 +647,19 @@ function getMessagePreview(content, limit = 80) {
 
 async function handleIncomingMessage(payload) {
   pushLog(`Callback payload: ${safeJsonStringify(payload)}`);
+  maybeUpdateRuntimeUpstreamBase(payload?.http_port ?? payload?.data?.http_port);
   const msg = extractMessage(payload);
+  if (msg.eventType === 10001) {
+    const actualHttpPort = Number(payload?.http_port ?? payload?.data?.http_port ?? 0);
+    const expectedPort = (() => {
+      try {
+        return new URL(config.upstreamBase).port || '80';
+      } catch {
+        return '';
+      }
+    })();
+    pushLog(`首次链接事件: pid=${String(payload?.pid ?? '')}, account=${String(payload?.account_wxid || '') || '(empty)'}, inject回连端口=${String(actualHttpPort || '')}, 预期upstream端口=${String(expectedPort || '')}`);
+  }
   if (msg.msgType && msg.msgType !== 1) {
     pushLog(`Skipped non-text callback: msgType=${msg.msgType}, eventType=${msg.eventType || 0}, eventDesc=${msg.eventDesc || ''}`);
     return;
@@ -562,6 +752,7 @@ function startCallbackServer() {
 }
 
 function startInject() {
+  runtimeUpstreamBase = '';
   const executable = getInjectExecutableCandidates().find((candidate) => fs.existsSync(candidate));
   if (!executable) {
     pushLog(`鏈壘鍒?inject.exe锛屽凡鎸夊綋鍓嶇▼搴忕洰褰曟煡鎵? ${getDefaultInjectExecutable()}`);
@@ -576,10 +767,50 @@ function startInject() {
     return;
   }
 
+  try {
+    const diagnostics = getStartDiagnostics(executable, injectArgs);
+    pushLog(`启动诊断: ${safeJsonStringify(diagnostics)}`);
+  } catch (error) {
+    pushLog(`生成启动诊断日志失败: ${safeErrorMessage(error)}`);
+  }
+
+  try {
+    const killed = killResidualInjectProcesses(executable);
+    if (killed.length > 0) {
+      const summary = killed.map((item) => `pid=${item.pid}`).join(', ');
+      pushLog(`已清理同目录残留 inject.exe 进程: ${summary}`);
+    } else {
+      pushLog(`未发现同目录残留 inject.exe 进程: ${path.dirname(executable)}`);
+    }
+  } catch (error) {
+    pushLog(`清理同目录 inject.exe 残留进程失败: ${error.message}`);
+  }
+
+  try {
+    const weixinPath = Array.isArray(injectArgs) ? injectArgs[0] : '';
+    const existingWeixin = listMatchingProcessesByPath('Weixin.exe', weixinPath);
+    if (existingWeixin.length > 0) {
+      const summary = existingWeixin.map((item) => `pid=${item.pid}`).join(', ');
+      pushLog(`启动前发现已存在的目标微信进程: ${summary}; path=${weixinPath}`);
+    } else if (weixinPath) {
+      pushLog(`启动前未发现目标微信进程: ${weixinPath}`);
+    }
+  } catch (error) {
+    pushLog(`查询目标微信进程失败: ${safeErrorMessage(error)}`);
+  }
+
   injectProcess = spawn(executable, injectArgs, {
     windowsHide: false,
     detached: false,
     stdio: 'ignore'
+  });
+
+  injectProcess.on('spawn', () => {
+    pushLog(`inject.exe 已创建子进程: pid=${String(injectProcess?.pid || '')}`);
+  });
+
+  injectProcess.on('error', (error) => {
+    pushLog(`inject.exe 启动失败: ${safeErrorMessage(error)}`);
   });
 
   injectProcess.on('exit', (code) => {

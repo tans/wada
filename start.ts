@@ -194,6 +194,64 @@ function resolveFirstExisting(candidates: string[]): string | null {
   return null;
 }
 
+function normalizeDirectoryForCompare(dirPath: string): string {
+  return path.resolve(dirPath).replace(/[\\/]+$/, "").toLowerCase();
+}
+
+function escapePowerShellSingleQuoted(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
+function decodeText(bytes: Uint8Array | undefined): string {
+  if (!bytes || bytes.length === 0) {
+    return "";
+  }
+  return new TextDecoder().decode(bytes).trim();
+}
+
+function killResidualInjectProcesses(injectPath: string): void {
+  if (process.platform !== "win32") {
+    return;
+  }
+
+  const targetDir = normalizeDirectoryForCompare(path.dirname(injectPath));
+  const psScript = [
+    `$targetDir = '${escapePowerShellSingleQuoted(targetDir)}'`,
+    "$killed = @()",
+    "Get-CimInstance Win32_Process -Filter \"Name = 'inject.exe'\" | ForEach-Object {",
+    "  $exePath = $_.ExecutablePath",
+    "  if (-not $exePath) { return }",
+    "  $procDir = [System.IO.Path]::GetDirectoryName($exePath)",
+    "  if (-not $procDir) { return }",
+    "  if ($procDir.TrimEnd('\\\\','/').ToLowerInvariant() -ne $targetDir) { return }",
+    "  Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop",
+    "  $killed += [PSCustomObject]@{ pid = $_.ProcessId; path = $exePath }",
+    "}",
+    "if ($killed.Count -gt 0) { $killed | ConvertTo-Json -Compress }",
+  ].join("\n");
+
+  const result = Bun.spawnSync(["powershell.exe", "-NoProfile", "-Command", psScript], {
+    stdout: "pipe",
+    stderr: "pipe",
+    stdin: "ignore",
+  });
+
+  if (result.exitCode !== 0) {
+    const stderr = decodeText(result.stderr);
+    throw new Error(stderr || `powershell exited with code ${String(result.exitCode)}`);
+  }
+
+  const stdout = decodeText(result.stdout);
+  if (!stdout) {
+    console.log(`No residual inject.exe found under ${targetDir}`);
+    return;
+  }
+
+  const parsed = JSON.parse(stdout) as { pid: number; path: string } | Array<{ pid: number; path: string }>;
+  const killed = Array.isArray(parsed) ? parsed : [parsed];
+  console.log(`Killed residual inject.exe from same directory: ${killed.map((item) => `pid=${item.pid}`).join(", ")}`);
+}
+
 function safeJsonParse(text: string): { ok: true; value: unknown } | { ok: false; value: null } {
   try {
     return { ok: true, value: JSON.parse(text) };
@@ -659,6 +717,8 @@ async function runInject(options: StartOptions, scriptRoot: string): Promise<voi
   console.log("DLL:", dllPath);
   console.log("Mode:", options.mode);
   console.log("Config:", JSON.stringify(config));
+
+  killResidualInjectProcesses(injectPath);
 
   const proc = Bun.spawn([injectPath, weixinPath, dllPath, JSON.stringify(config)], {
     stdout: "inherit",

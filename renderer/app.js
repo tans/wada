@@ -97,7 +97,12 @@ function renderChat() {
   const current = conversations.find((item) => item.userId === selectedUserId) || conversations[0];
 
   if (!current) {
-    chatFeed.innerHTML = '';
+    chatFeed.innerHTML = '<div class="empty-state">等待新消息</div>';
+    return;
+  }
+
+  if (!current.messages || current.messages.length === 0) {
+    chatFeed.innerHTML = '<div class="empty-state">等待新消息</div>';
     return;
   }
 

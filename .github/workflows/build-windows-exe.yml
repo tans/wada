@@ -25,7 +25,8 @@ jobs:
       - name: Convert wada.webp to icon
         shell: pwsh
         run: |
-          magick convert wada.webp -define icon:auto-resize=16,24,32,48,64,128,256 build/icon.ico
+          New-Item -ItemType Directory -Path build -Force | Out-Null
+          magick wada.webp -define icon:auto-resize=16,24,32,48,64,128,256 build/icon.ico
 
       - name: Build Windows EXE
         run: npx electron-builder --win portable

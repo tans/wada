@@ -1,5 +1,6 @@
 # wechat-ai-digit-asistant
 
+![截图](wada.jpg)
 
 
 ## 功能

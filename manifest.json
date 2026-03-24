@@ -1,12 +1,12 @@
 {
   "schemaVersion": "1.0",
-  "id": "wechat-mcp",
-  "name": "wechat-mcp",
-  "displayName": "WeChat MCP",
-  "description": "基于 Bun 的微信 MCP 运行时，提供回调接收与消息采集。",
+  "id": "wechat-electrobun-bot",
+  "name": "wechat-electrobun-bot",
+  "displayName": "WeChat ElectroBun Bot",
+  "description": "ElectroBun 桌面版微信自动回复工具：自动注入、监听消息并通过 DeepSeek 回复。",
   "publisher": "clawos",
   "platforms": [
     "windows"
   ],
-  "version": "0.1.1"
+  "version": "0.2.0"
 }

@@ -1,0 +1,80 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+body {
+  margin: 0;
+  background: #0f1117;
+  color: #f5f7ff;
+}
+.layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 340px 1fr;
+  padding: 20px;
+}
+.panel {
+  background: #171a23;
+  border: 1px solid #242a3d;
+  border-radius: 14px;
+  padding: 16px;
+}
+.panel:nth-child(3) {
+  grid-column: 1 / span 2;
+}
+h1, h2 { margin: 0 0 8px; }
+.sub { margin: 0 0 16px; color: #98a2c6; }
+.switch-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.switch { display: flex; gap: 8px; align-items: center; }
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+input {
+  background: #0f121a;
+  border: 1px solid #2b334a;
+  border-radius: 8px;
+  color: #fff;
+  padding: 8px 10px;
+}
+button {
+  background: #406cff;
+  border: none;
+  color: white;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+.roles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+.role {
+  background: #0f121a;
+  border: 1px solid #2a3248;
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+}
+.role.active {
+  border-color: #5a7dff;
+  box-shadow: 0 0 0 1px #5a7dff inset;
+}
+.role img {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+.role .name { font-weight: 700; }
+.role .title { color: #8fa2ff; }
+.role .desc { color: #a4afcf; font-size: 13px; }
+.logs {
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  margin: 0;
+  font-size: 12px;
+  background: #0d1017;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #252b3f;
+}

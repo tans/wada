@@ -7,9 +7,32 @@
   "scripts": {
     "dev": "electron .",
     "start": "electron .",
-    "lint": "node --check main.js && node --check preload.js && node --check renderer/app.js"
+    "lint": "node --check main.js && node --check preload.js && node --check renderer/app.js",
+    "build:win": "electron-builder --win portable"
   },
   "dependencies": {
     "electron": "^31.7.7"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.wada.bot",
+    "productName": "WadaBot",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "**/*",
+      "!dist/**",
+      "!.github/**"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "build/icon.ico"
+    }
   }
 }

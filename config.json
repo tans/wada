@@ -1,0 +1,11 @@
+{
+  "selectedRoleId": "ada-incubator",
+  "groupReplyEnabled": false,
+  "callbackPort": 5000,
+  "upstreamBase": "http://127.0.0.1:19088",
+  "deepseekBaseUrl": "https://api.deepseek.com",
+  "deepseekModel": "deepseek-chat",
+  "deepseekApiKey": "sk-4cba8c68b1404a6f8cc69e91ad6da8db",
+  "injectExecutable": "inject.exe",
+  "injectArgs": []
+}

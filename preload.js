@@ -5,5 +5,8 @@ contextBridge.exposeInMainWorld('botApp', {
   updateConfig: (patch) => ipcRenderer.invoke('app:update-config', patch),
   onLog: (listener) => {
     ipcRenderer.on('bot-log', (_event, line) => listener(line));
+  },
+  onTaskStatus: (listener) => {
+    ipcRenderer.on('task-status', (_event, status) => listener(status));
   }
 });

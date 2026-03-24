@@ -8,40 +8,7 @@
   </head>
   <body>
     <main class="layout">
-      <section class="panel">
-        <h1>微信自动回复（ElectroBun）</h1>
-        <p class="sub">打开即自动注入、监听消息并回复（DeepSeek 驱动）</p>
-
-        <div class="switch-row">
-          <label class="switch">
-            <input id="groupToggle" type="checkbox" />
-            <span>群聊回复</span>
-          </label>
-          <small id="groupHint">关闭时不回复群消息</small>
-        </div>
-
-        <label class="field">
-          <span>DeepSeek API Key</span>
-          <input id="apiKey" placeholder="sk-..." type="password" />
-        </label>
-
-        <label class="field">
-          <span>回调端口</span>
-          <input id="callbackPort" type="number" min="1000" max="65535" />
-        </label>
-
-        <button id="saveBtn">保存配置</button>
-      </section>
-
-      <section class="panel">
-        <h2>预设角色</h2>
-        <div id="roleGrid" class="roles"></div>
-      </section>
-
-      <section class="panel">
-        <h2>运行日志</h2>
-        <pre id="logBox" class="logs"></pre>
-      </section>
+      <div id="roleGrid" class="roles"></div>
     </main>
     <script src="./app.js"></script>
   </body>

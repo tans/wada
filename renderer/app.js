@@ -1,22 +1,37 @@
 const roleGrid = document.getElementById('roleGrid');
-const logBox = document.getElementById('logBox');
-const groupToggle = document.getElementById('groupToggle');
-const apiKey = document.getElementById('apiKey');
-const callbackPort = document.getElementById('callbackPort');
-const saveBtn = document.getElementById('saveBtn');
 
 let state;
 
+function getBadges(role, isActive, isProcessing, isError) {
+  const badges = [];
+  if (isActive) badges.push('<span class="tag">当前</span>');
+  if (isProcessing) badges.push('<span class="tag tag-hot">处理中</span>');
+  if (isError) badges.push('<span class="tag tag-error">失败</span>');
+  return badges.join('');
+}
+
 function renderRoles() {
   roleGrid.innerHTML = '';
+  const currentTask = state.taskStatus || { status: 'idle', roleId: '' };
+
   state.roles.forEach((role) => {
+    const isActive = state.config.selectedRoleId === role.id;
+    const isProcessing = currentTask.status === 'processing' && currentTask.roleId === role.id;
+    const isError = currentTask.status === 'error' && currentTask.roleId === role.id;
     const el = document.createElement('article');
-    el.className = `role ${state.config.selectedRoleId === role.id ? 'active' : ''}`;
+    el.className = `role ${isActive ? 'active' : ''} ${isProcessing ? 'processing' : ''} ${isError ? 'error' : ''}`;
     el.innerHTML = `
       <img src="${role.avatar}" alt="${role.name}" />
-      <div class="name">${role.name}</div>
-      <div class="title">${role.title}</div>
-      <div class="desc">${role.description}</div>
+      <div class="role-copy">
+        <div class="top-row">
+          <div>
+            <div class="name">${role.name}</div>
+            <div class="title">${role.title}</div>
+          </div>
+          <div class="badges">${getBadges(role, isActive, isProcessing, isError)}</div>
+        </div>
+        <div class="desc">${role.description}</div>
+      </div>
     `;
     el.addEventListener('click', async () => {
       const resp = await window.botApp.updateConfig({ selectedRoleId: role.id });
@@ -27,35 +42,14 @@ function renderRoles() {
   });
 }
 
-function renderLogs(lines) {
-  logBox.textContent = lines.join('\n');
-}
-
 async function boot() {
   state = await window.botApp.getState();
-  groupToggle.checked = Boolean(state.config.groupReplyEnabled);
-  apiKey.value = state.config.deepseekApiKey || '';
-  callbackPort.value = String(state.config.callbackPort || 5000);
-
   renderRoles();
-  renderLogs(state.logs || []);
 
-  window.botApp.onLog((line) => {
-    const lines = logBox.textContent ? logBox.textContent.split('\n') : [];
-    lines.unshift(line);
-    logBox.textContent = lines.slice(0, 200).join('\n');
+  window.botApp.onTaskStatus((taskStatus) => {
+    state.taskStatus = taskStatus;
+    renderRoles();
   });
 }
-
-saveBtn.addEventListener('click', async () => {
-  const patch = {
-    groupReplyEnabled: groupToggle.checked,
-    deepseekApiKey: apiKey.value.trim(),
-    callbackPort: Number(callbackPort.value) || 5000
-  };
-  const resp = await window.botApp.updateConfig(patch);
-  state.config = resp.config;
-  alert('配置已保存');
-});
 
 boot();

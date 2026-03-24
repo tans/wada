@@ -1,0 +1,53 @@
+
+[2026-03-24T02:33:59.583Z] 已启动注入进程 inject.exe
+[2026-03-24T02:33:59.686Z] 回调服务已启动: http://127.0.0.1:5000/api/recvMsg
+[2026-03-24T02:34:00.298Z] inject 进程退出，code=4294967295
+[2026-03-24T02:34:14.946Z] 配置已更新并写入 config.json
+[2026-03-24T02:34:16.118Z] 配置已更新并写入 config.json
+[2026-03-24T02:34:22.600Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:34:24.028Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:34:51.310Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:34:53.634Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:41:29.819Z] 未找到 inject 程序，已跳过注入: C:\wada\inject.exe
+[2026-03-24T02:41:29.924Z] 回调服务已启动: http://127.0.0.1:5000/api/recvMsg
+[2026-03-24T02:42:21.510Z] 收到消息，但缺少 fromUserName 或 content，已跳过。
+[2026-03-24T02:42:44.788Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:47:04.546Z] 已启动注入进程: C:\work\wada\inject.exe
+[2026-03-24T02:47:04.608Z] 回调服务已启动: http://127.0.0.1:5000/api/recvMsg
+[2026-03-24T02:47:05.654Z] inject 进程退出，code=4294967295
+[2026-03-24T02:47:15.627Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:47:15.842Z] 收到消息，但缺少 fromUserName 或 content，已跳过。
+[2026-03-24T02:48:56.734Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:48:59.421Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:49:00.621Z] 配置已更新并写入 config.json
+[2026-03-24T02:49:00.669Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:49:01.686Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:49:03.906Z] 配置已更新并写入 config.json
+[2026-03-24T02:49:05.324Z] 配置已更新并写入 config.json
+[2026-03-24T02:49:06.958Z] 配置已更新并写入 config.json
+[2026-03-24T02:49:08.091Z] 配置已更新并写入 config.json
+[2026-03-24T02:49:13.230Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:49:14.510Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:49:22.517Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:50:19.542Z] 收到消息，但缺少 fromUserName 或 content，已跳过。
+[2026-03-24T02:50:20.211Z] 收到消息，但缺少 fromUserName 或 content，已跳过。
+[2026-03-24T02:50:21.578Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:50:23.731Z] 收到消息，但缺少 fromUserName 或 content，已跳过。
+[2026-03-24T02:55:09.771Z] 已启动注入进程: C:\work\wada\inject.exe
+[2026-03-24T02:55:10.052Z] 回调服务已启动: http://127.0.0.1:5000/api/recvMsg
+[2026-03-24T02:55:10.290Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:55:10.447Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:55:10.598Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:55:11.507Z] inject 进程退出，code=4294967295
+[2026-03-24T02:55:23.417Z] 收到消息，但缺少 fromUserName 或 content，已跳过。
+[2026-03-24T02:55:32.118Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T02:55:39.918Z] 处理回调失败: msg.content.slice is not a function
+[2026-03-24T03:06:38.933Z] 宸插惎鍔ㄦ敞鍏ヨ繘绋? C:\work\wada\inject.exe
+[2026-03-24T03:06:39.018Z] 鍥炶皟鏈嶅姟宸插惎鍔? http://127.0.0.1:5000/api/recvMsg
+[2026-03-24T03:06:39.309Z] inject 杩涚▼閫€鍑猴紝code=4294967295
+[2026-03-24T03:08:17.753Z] 宸插惎鍔ㄦ敞鍏ヨ繘绋? C:\work\wada\inject.exe
+[2026-03-24T03:08:17.923Z] 鍥炶皟鏈嶅姟宸插惎鍔? http://127.0.0.1:5000/api/recvMsg
+[2026-03-24T03:08:18.375Z] inject 杩涚▼閫€鍑猴紝code=4294967295
+[2026-03-24T03:08:40.990Z] 宸插惎鍔ㄦ敞鍏ヨ繘绋? C:\work\wada\inject.exe
+[2026-03-24T03:08:41.270Z] 鍥炶皟鏈嶅姟宸插惎鍔? http://127.0.0.1:5000/api/recvMsg
+[2026-03-24T03:08:41.779Z] inject 杩涚▼閫€鍑猴紝code=4294967295

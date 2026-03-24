@@ -3,12 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ElectroBun Auto Reply</title>
+    <title>WeChat AI Digital Assistant</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="layout">
-      <div id="roleGrid" class="roles"></div>
+      <section class="workspace">
+        <aside class="users-panel">
+          <div id="userList" class="user-list"></div>
+        </aside>
+        <section class="chat-panel">
+          <div id="chatFeed" class="chat-feed"></div>
+        </section>
+      </section>
+      <section class="roles-panel">
+        <div id="roleGrid" class="roles"></div>
+      </section>
     </main>
     <script src="./app.js"></script>
   </body>

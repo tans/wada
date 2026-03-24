@@ -665,11 +665,14 @@ async function runInject(options: StartOptions, scriptRoot: string): Promise<voi
     stderr: "inherit",
     stdin: "ignore",
   });
-  const code = await proc.exited;
-  if (code !== 0) {
-    throw new Error(`inject.exe failed with exit code ${code}`);
-  }
-  console.log("wechat-mcp injected successfully.");
+  console.log("inject.exe started.");
+  void proc.exited.then((code) => {
+    if (code === 0) {
+      console.log("inject.exe exited.");
+      return;
+    }
+    console.warn(`inject.exe exited with code ${code}.`);
+  });
 }
 
 async function main(): Promise<void> {

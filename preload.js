@@ -8,5 +8,8 @@ contextBridge.exposeInMainWorld('botApp', {
   },
   onTaskStatus: (listener) => {
     ipcRenderer.on('task-status', (_event, status) => listener(status));
+  },
+  onConversations: (listener) => {
+    ipcRenderer.on('conversation-state', (_event, conversations) => listener(conversations));
   }
 });

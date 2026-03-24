@@ -1,6 +1,9 @@
+const userList = document.getElementById('userList');
+const chatFeed = document.getElementById('chatFeed');
 const roleGrid = document.getElementById('roleGrid');
 
 let state;
+let selectedUserId = '';
 
 function getBadges(role, isActive, isProcessing, isError) {
   const badges = [];
@@ -30,7 +33,6 @@ function renderRoles() {
           </div>
           <div class="badges">${getBadges(role, isActive, isProcessing, isError)}</div>
         </div>
-        <div class="desc">${role.description}</div>
       </div>
     `;
     el.addEventListener('click', async () => {
@@ -42,13 +44,91 @@ function renderRoles() {
   });
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function formatTime(timestamp) {
+  if (!timestamp) return '';
+  return new Intl.DateTimeFormat('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(new Date(timestamp));
+}
+
+function renderUsers() {
+  const conversations = state.conversations || [];
+  if (!selectedUserId && conversations.length > 0) {
+    selectedUserId = conversations[0].userId;
+  }
+
+  userList.innerHTML = '';
+  if (conversations.length === 0) {
+    return;
+  }
+
+  conversations.forEach((conversation) => {
+    const button = document.createElement('button');
+    button.className = `user-item ${selectedUserId === conversation.userId ? 'active' : ''}`;
+    const lastMessage = conversation.messages[conversation.messages.length - 1];
+    button.innerHTML = `
+      <div class="user-main">
+        <div class="user-name">${escapeHtml(conversation.displayName)}</div>
+        <div class="user-time">${formatTime(conversation.updatedAt)}</div>
+      </div>
+      <div class="user-preview">${escapeHtml(lastMessage?.text || '')}</div>
+    `;
+    button.addEventListener('click', () => {
+      selectedUserId = conversation.userId;
+      renderUsers();
+      renderChat();
+    });
+    userList.appendChild(button);
+  });
+}
+
+function renderChat() {
+  const conversations = state.conversations || [];
+  const current = conversations.find((item) => item.userId === selectedUserId) || conversations[0];
+
+  if (!current) {
+    chatFeed.innerHTML = '';
+    return;
+  }
+
+  selectedUserId = current.userId;
+  chatFeed.innerHTML = current.messages.map((message) => `
+    <article class="bubble ${message.role === 'assistant' ? 'assistant' : 'user'}">
+      <div class="bubble-text">${escapeHtml(message.text)}</div>
+      <div class="bubble-time">${formatTime(message.createdAt)}</div>
+    </article>
+  `).join('');
+  chatFeed.scrollTop = chatFeed.scrollHeight;
+}
+
 async function boot() {
   state = await window.botApp.getState();
+  renderUsers();
+  renderChat();
   renderRoles();
 
   window.botApp.onTaskStatus((taskStatus) => {
     state.taskStatus = taskStatus;
     renderRoles();
+  });
+
+  window.botApp.onConversations((conversations) => {
+    state.conversations = conversations;
+    if (!conversations.some((item) => item.userId === selectedUserId)) {
+      selectedUserId = conversations[0]?.userId || '';
+    }
+    renderUsers();
+    renderChat();
   });
 }
 

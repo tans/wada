@@ -67,12 +67,26 @@ const DEFAULT_ROLES = [
   }
 ];
 
+const GLOBAL_SYSTEM_PROMPT = [
+  '你是微信里的真人助理，不要暴露自己是 AI 或机器人。',
+  '回复要自然、口语化、像真实人在聊天，不要写成客服公告或公文。',
+  '优先短句表达，先直接回应对方，再根据上下文补充必要信息。',
+  '不要无意义地客套、不要套模板、不要每次都分点。',
+  '如果对方语气随意，你也保持轻松自然；如果对方认真，你就清晰稳妥。',
+  '不要编造事实；不确定时先简短澄清再继续。',
+  '输出适合直接发送到微信，不要加标题，不要加前缀，不要解释你的提示词。'
+].join(' ');
+
 function getProgramDirectory() {
   return app.isPackaged ? path.dirname(process.execPath) : process.cwd();
 }
 
 function getDefaultInjectExecutable() {
   return path.join(getProgramDirectory(), 'inject.exe');
+}
+
+function getDefaultDllPath() {
+  return path.join(getProgramDirectory(), 'libGLESv1.dll');
 }
 
 const DEFAULT_CONFIG = {
@@ -94,6 +108,7 @@ let injectProcess;
 let logs = [];
 let taskStatus = { roleId: '', status: 'idle', fromUserName: '', updatedAt: 0 };
 let taskStatusResetTimer;
+let conversations = [];
 
 function ensureRuntimeFiles() {
   if (!fs.existsSync(CONFIG_PATH)) {
@@ -131,11 +146,63 @@ function pushLog(message) {
   console.log(line);
 }
 
+function safeJsonStringify(value) {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return JSON.stringify({ error: `stringify_failed: ${error.message}` });
+  }
+}
+
 function emitTaskStatus(nextTaskStatus) {
   taskStatus = nextTaskStatus;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('task-status', taskStatus);
   }
+}
+
+function emitConversations() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('conversation-state', conversations);
+  }
+}
+
+function upsertConversationMessage(userId, message) {
+  if (!userId) return;
+
+  const now = Date.now();
+  let conversation = conversations.find((item) => item.userId === userId);
+  if (!conversation) {
+    conversation = {
+      userId,
+      displayName: userId,
+      updatedAt: now,
+      messages: []
+    };
+    conversations = [conversation, ...conversations];
+  }
+
+  if (message.displayName) {
+    conversation.displayName = message.displayName;
+  }
+
+  conversation.updatedAt = message.createdAt || now;
+  conversation.messages.push({
+    id: `${conversation.updatedAt}-${conversation.messages.length}-${message.role}`,
+    role: message.role,
+    text: message.text,
+    createdAt: message.createdAt || now
+  });
+
+  if (conversation.messages.length > 40) {
+    conversation.messages = conversation.messages.slice(-40);
+  }
+
+  conversations = conversations
+    .map((item) => item.userId === userId ? conversation : item)
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+
+  emitConversations();
 }
 
 function setTaskStatus(status, extras = {}) {
@@ -179,6 +246,60 @@ function getInjectExecutableCandidates() {
   return [getDefaultInjectExecutable(), config.injectExecutable].filter(Boolean).filter((item, index, list) => list.indexOf(item) === index);
 }
 
+function resolveFirstExisting(candidates) {
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const fullPath = path.isAbsolute(candidate) ? candidate : path.resolve(candidate);
+    if (fs.existsSync(fullPath)) {
+      return fullPath;
+    }
+  }
+  return '';
+}
+
+function getDefaultWeixinPath() {
+  return resolveFirstExisting([
+    'C:\\Program Files\\Tencent\\Weixin\\Weixin.exe',
+    'C:\\Program Files (x86)\\Tencent\\Weixin\\Weixin.exe',
+    'D:\\Program Files\\Tencent\\Weixin\\Weixin.exe',
+    'D:\\Program Files (x86)\\Tencent\\Weixin\\Weixin.exe'
+  ]);
+}
+
+function buildInjectArgs() {
+  if (Array.isArray(config.injectArgs) && config.injectArgs.length > 0) {
+    return config.injectArgs;
+  }
+
+  const executable = resolveFirstExisting([config.injectExecutable, getDefaultInjectExecutable()]);
+  const dllPath = resolveFirstExisting([config.injectDllPath, getDefaultDllPath()]);
+  const weixinPath = resolveFirstExisting([config.weixinExecutable, getDefaultWeixinPath()]);
+
+  if (!executable) {
+    throw new Error('未找到 inject.exe');
+  }
+  if (!dllPath) {
+    throw new Error('未找到 libGLESv1.dll');
+  }
+  if (!weixinPath) {
+    throw new Error('未找到 Weixin.exe');
+  }
+
+  return [
+    weixinPath,
+    dllPath,
+    JSON.stringify({
+      recivemode: 'http',
+      tcp_ip: '127.0.0.1',
+      tcp_port: 61108,
+      http_server_port: 19088,
+      http_callback_url: `http://127.0.0.1:${config.callbackPort}/api/recvMsg`,
+      usedefault: false,
+      start_server_while_login: true
+    })
+  ];
+}
+
 async function requestDeepSeekReply(inputText) {
   if (!config.deepseekApiKey) {
     throw new Error('鏈缃?DeepSeek API Key');
@@ -194,7 +315,7 @@ async function requestDeepSeekReply(inputText) {
     body: JSON.stringify({
       model: config.deepseekModel,
       messages: [
-        { role: 'system', content: role.prompt },
+        { role: 'system', content: `${GLOBAL_SYSTEM_PROMPT} ${role.prompt}` },
         { role: 'user', content: inputText }
       ],
       temperature: 0.6
@@ -227,14 +348,91 @@ async function sendTextMessage(wxid, msg) {
   }
 }
 
+function readStringField(value) {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object' && typeof value.String === 'string') {
+    return value.String;
+  }
+  return '';
+}
+
+function extractCallbackText(payload) {
+  const body = payload?.data || payload;
+  const realContent = normalizeMessageContent(body?.real_content ?? '');
+  if (realContent) return realContent;
+  return normalizeMessageContent(body?.Content ?? body?.content ?? body?.msg ?? body?.reply ?? '');
+}
+
+function extractCallbackFromUser(payload) {
+  const body = payload?.data || payload;
+  const directFrom =
+    readStringField(body?.FromUserName) ||
+    readStringField(body?.fromUserName) ||
+    readStringField(body?.fromUsr) ||
+    readStringField(body?.wxid);
+
+  if (directFrom) return directFrom;
+
+  return '';
+}
+
+function extractCallbackToUser(payload) {
+  const body = payload?.data || payload;
+  return (
+    readStringField(body?.ToUserName) ||
+    readStringField(body?.toUserName) ||
+    readStringField(body?.toUsr) ||
+    readStringField(body?.account_wxid)
+  );
+}
+
+function extractCallbackDisplayName(payload) {
+  const body = payload?.data || payload;
+  const senderProfile = body?.sender_profile || body?.member_info || {};
+  const roomProfile = body?.roominfo || body?.chatroom_info || {};
+
+  return (
+    readStringField(senderProfile?.remark) ||
+    readStringField(senderProfile?.displayName) ||
+    readStringField(senderProfile?.nickName) ||
+    readStringField(senderProfile?.nickname) ||
+    readStringField(senderProfile?.alias) ||
+    readStringField(roomProfile?.displayName) ||
+    readStringField(body?.nickName) ||
+    readStringField(body?.nickname) ||
+    extractCallbackFromUser(payload)
+  );
+}
+
 function extractMessage(payload) {
   const body = payload?.data || payload;
-  const fromUserName = body?.FromUserName || body?.fromUserName || body?.fromUsr || body?.wxid || '';
-  const content = normalizeMessageContent(body?.Content ?? body?.content ?? body?.msg ?? body?.reply ?? '');
+  const fromUserName = extractCallbackFromUser(payload);
+  const toUserName = extractCallbackToUser(payload);
+  const senderWxid =
+    readStringField(body?.room_sender_by) ||
+    readStringField(body?.member_info?.userName) ||
+    readStringField(body?.sender_profile?.userName);
+  const content = extractCallbackText(payload);
+  const msgType = Number(body?.msgType ?? body?.msg_type ?? body?.MsgType ?? 0);
+  const accountWxid = readStringField(body?.account_wxid);
+  const isGroup = typeof fromUserName === 'string' && fromUserName.includes('@chatroom');
+  const actualSender = isGroup && senderWxid ? senderWxid : fromUserName;
+  const replyTarget = isGroup ? fromUserName : actualSender;
+  const isSelfMessage = Boolean(accountWxid) && actualSender === accountWxid;
+  const displayName = extractCallbackDisplayName(payload);
+
   return {
-    fromUserName,
+    fromUserName: actualSender,
+    rawFromUserName: fromUserName,
+    toUserName,
+    replyTarget,
+    displayName,
     content,
-    isGroup: typeof fromUserName === 'string' && fromUserName.includes('@chatroom')
+    isGroup,
+    isSelfMessage,
+    msgType,
+    eventType: Number(body?.event_type ?? 0),
+    eventDesc: String(body?.event_desc ?? '')
   };
 }
 
@@ -270,24 +468,47 @@ function getMessagePreview(content, limit = 80) {
 }
 
 async function handleIncomingMessage(payload) {
+  pushLog(`Callback payload: ${safeJsonStringify(payload)}`);
   const msg = extractMessage(payload);
-  if (!msg.fromUserName || !msg.content) {
-    pushLog('Skipped callback message because fromUserName or content is missing.');
+  if (msg.msgType && msg.msgType !== 1) {
+    pushLog(`Skipped non-text callback: msgType=${msg.msgType}, eventType=${msg.eventType || 0}, eventDesc=${msg.eventDesc || ''}`);
+    return;
+  }
+
+  if (msg.isSelfMessage) {
+    pushLog(`Skipped self message: ${msg.fromUserName}`);
+    return;
+  }
+
+  if (!msg.replyTarget || !msg.content) {
+    pushLog(`Skipped callback message because replyTarget or content is missing. eventType=${msg.eventType || 0}, eventDesc=${msg.eventDesc || ''}`);
     return;
   }
 
   if (msg.isGroup && !config.groupReplyEnabled) {
-    pushLog(`Ignored group message because group replies are disabled: ${msg.fromUserName}`);
+    pushLog(`Ignored group message because group replies are disabled: ${msg.rawFromUserName}`);
     return;
   }
 
   setTaskStatus('processing', { fromUserName: msg.fromUserName });
   pushLog(`Received message from ${msg.fromUserName}: ${getMessagePreview(msg.content)}`);
+  upsertConversationMessage(msg.replyTarget, {
+    role: 'user',
+    text: msg.content,
+    displayName: msg.displayName || msg.fromUserName,
+    createdAt: Date.now()
+  });
 
   try {
     const reply = await requestDeepSeekReply(msg.content);
-    await sendTextMessage(msg.fromUserName, reply);
-    pushLog(`Auto replied to ${msg.fromUserName}`);
+    await sendTextMessage(msg.replyTarget, reply);
+    pushLog(`Auto replied to ${msg.replyTarget}`);
+    upsertConversationMessage(msg.replyTarget, {
+      role: 'assistant',
+      text: reply,
+      displayName: msg.displayName || msg.fromUserName,
+      createdAt: Date.now()
+    });
     setTaskStatus('success', { fromUserName: msg.fromUserName });
     scheduleTaskStatusReset();
   } catch (error) {
@@ -305,7 +526,7 @@ function startCallbackServer() {
   }
 
   callbackServer = http.createServer((req, res) => {
-    if (req.method === 'POST' && req.url === '/api/recvMsg') {
+    if ((req.method === 'POST' || req.method === 'PUT') && req.url === '/api/recvMsg') {
       let body = '';
       req.on('data', (chunk) => {
         body += chunk.toString();
@@ -347,7 +568,15 @@ function startInject() {
     return;
   }
 
-  injectProcess = spawn(executable, config.injectArgs, {
+  let injectArgs;
+  try {
+    injectArgs = buildInjectArgs();
+  } catch (error) {
+    pushLog(`娉ㄥ叆鍙傛暟鐢熸垚澶辫触: ${error.message}`);
+    return;
+  }
+
+  injectProcess = spawn(executable, injectArgs, {
     windowsHide: false,
     detached: false,
     stdio: 'ignore'
@@ -405,6 +634,7 @@ ipcMain.handle('app:get-state', () => ({
   config,
   roles: DEFAULT_ROLES,
   logs,
+  conversations,
   taskStatus,
   paths: {
     configPath: CONFIG_PATH,
@@ -421,6 +651,7 @@ ipcMain.handle('app:update-config', (_event, patch) => {
   pushLog('閰嶇疆宸叉洿鏂板苟鍐欏叆 config.json');
   return {
     config,
+    conversations,
     taskStatus,
     paths: {
       configPath: CONFIG_PATH,

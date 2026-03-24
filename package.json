@@ -1,0 +1,15 @@
+{
+  "name": "wechat-electrobun-bot",
+  "version": "0.2.0",
+  "description": "ElectroBun 桌面版微信自动回复助手（注入 + 监听 + DeepSeek 自动回复）",
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "electron .",
+    "start": "electron .",
+    "lint": "node --check main.js && node --check preload.js && node --check renderer/app.js"
+  },
+  "dependencies": {
+    "electron": "^31.7.7"
+  }
+}

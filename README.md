@@ -1,6 +1,6 @@
-# wechat-electrobun-bot
+# wechat-ai-digit-asistant
 
-把原来的 MCP 启动脚本改为 **ElectroBun（Electron + Bun）桌面应用**。
+
 
 ## 功能
 
